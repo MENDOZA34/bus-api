@@ -39,15 +39,35 @@ const registrarDatosBus = async (req, res) => {
       longitud,
       velocidad,
       tipo_evento,
-      fecha_hora,
     } = req.body;
+
+    /*
+      Usamos la fecha del servidor de Railway.
+      Así, aunque el ESP32 mande una fecha vieja o incorrecta,
+      la base de datos guardará el registro con una fecha reciente.
+    */
+    const fechaServidor = new Date()
+      .toISOString()
+      .slice(0, 19)
+      .replace("T", " ");
 
     await pool.query(
       "CALL registrar_datos_bus(?, ?, ?, ?, ?, ?, ?)",
-      [bus_id, cantidad, latitud, longitud, velocidad, tipo_evento, fecha_hora]
+      [
+        bus_id,
+        cantidad,
+        latitud,
+        longitud,
+        velocidad,
+        tipo_evento || "ACTUALIZACION",
+        fechaServidor,
+      ]
     );
 
-    res.json({ message: "Datos del bus registrados correctamente" });
+    res.json({
+      message: "Datos del bus registrados correctamente",
+      fecha_usada: fechaServidor,
+    });
   } catch (error) {
     console.error("Error al registrar datos del bus:", error);
     res.status(500).json({ error: "Error al registrar datos del bus" });
@@ -58,7 +78,9 @@ const getRutaConParadas = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const [rutaRows] = await pool.query("SELECT * FROM rutas WHERE id = ?", [id]);
+    const [rutaRows] = await pool.query("SELECT * FROM rutas WHERE id = ?", [
+      id,
+    ]);
 
     if (rutaRows.length === 0) {
       return res.status(404).json({ error: "Ruta no encontrada" });
